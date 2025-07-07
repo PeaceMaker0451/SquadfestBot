@@ -11,6 +11,8 @@ namespace SquadfestBot
         public ulong Id { get; set; }
         public string Name { get; set; }
 
+        public int PersonalScore {  get; set; }
+
         public PlayerData(ulong ID, string name)
         {
             Id = ID;

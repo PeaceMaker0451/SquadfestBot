@@ -8,9 +8,11 @@ using System.Threading.Tasks;
 
 namespace SquadfestBot
 {
-    public class LeaderBotManager
+    public class LeaderBotManager : IDisposable
     {
-        public List<LeaderBot> Bots { get; private set; }
+        public Dictionary<string,LeaderBot> Bots { get; private set; }
+
+        private CancellationTokenSource _questUpdateLoopCts;
         public GlobalGameState GlobalState
         {
             get
@@ -19,10 +21,15 @@ namespace SquadfestBot
                 if (File.Exists(path))
                 {
                     var json = File.ReadAllText(path);
-                    return JsonSerializer.Deserialize<GlobalGameState>(json) ?? new GlobalGameState();
+                    var state = JsonSerializer.Deserialize<GlobalGameState>(json) ?? new GlobalGameState();
+                    SaveGlobalState(state);
+                    return state;
+
+
                 }
                 else
                 {
+                    Console.WriteLine("Создаю GlobalState.json");
                     var state = new GlobalGameState();
                     SaveGlobalState(state);
                     return state;
@@ -34,13 +41,17 @@ namespace SquadfestBot
         public LeaderBotManager()
         {
             Bots = LoadBots();
+            GlobalState = GlobalState;
+
+            Program.ServiceModeOn += () => StopQuestUpdateLoop();
         }
 
         public async Task StartAllAsync()
         {
-            foreach (var bot in Bots)
+            foreach (var bot in Bots.Values)
             {
                 bot.CommandReceived += OnCommandReceived;
+                bot.ComponentReceived += OnComponentReceived;
                 await bot.StartAsync();
             }
         }
@@ -50,7 +61,13 @@ namespace SquadfestBot
             await GameCommandHandler.Handle(bot, e, GlobalState);
         }
 
-        private List<LeaderBot> LoadBots()
+        private async Task OnComponentReceived(LeaderBot bot, DSharpPlus.EventArgs.InteractionCreateEventArgs e)
+        {
+            Console.WriteLine("Ловлю компонент");
+            await GameCommandHandler.HandleComponent(bot, e, GlobalState);
+        }
+
+        private Dictionary<string, LeaderBot> LoadBots()
         {
             const string configPath = "BotsConfig.json";
 
@@ -66,14 +83,14 @@ namespace SquadfestBot
                 File.WriteAllText(configPath, json);
 
                 Console.WriteLine("BotsConfig.json создан. Заполни токены ботов.");
-                return new List<LeaderBot>();
+                return new Dictionary<string, LeaderBot>();
             }
             else
             {
                 var json = File.ReadAllText(configPath);
                 var configs = JsonSerializer.Deserialize<List<BotConfig>>(json) ?? new List<BotConfig>();
 
-                var bots = new List<LeaderBot>();
+                var bots = new Dictionary<string, LeaderBot>();
 
                 foreach (var cfg in configs)
                 {
@@ -84,7 +101,7 @@ namespace SquadfestBot
                     }
 
                     var bot = new LeaderBot(cfg.Id, cfg.Token);
-                    bots.Add(bot);
+                    bots.Add(cfg.Id, bot);
                 }
 
                 return bots;
@@ -99,6 +116,177 @@ namespace SquadfestBot
 
             var json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(path, json);
+        }
+
+        public string? GetPlayerLeader(ulong playerID)
+        {
+            foreach (var bot in Bots.Values)
+            {
+                var players = bot.Players;
+                if (players.Any(p => p.Id == playerID))
+                {
+                    return bot.Id;
+                }
+            }
+
+            return null;
+        }
+
+        public async Task SendGlobalMessage(LeaderBot bot, string text)
+        {
+            try
+            {
+                var channel = await bot._client.GetChannelAsync(GlobalState.GlobalChannelId);
+                if (channel != null)
+                {
+                    await channel.SendMessageAsync(text);
+                }
+                else
+                {
+                    Console.WriteLine("GlobalChannel не найден.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при отправке GlobalMessage: {ex.Message}");
+            }
+        }
+
+        public async Task SendAdminMessage(string text)
+        {
+            try
+            {
+                var bot = Bots.First().Value;
+                var channel = await bot._client.GetChannelAsync(GlobalState.AdminChannelId);
+                if (channel != null)
+                {
+                    await channel.SendMessageAsync(text);
+                }
+                else
+                {
+                    Console.WriteLine("AdminChannel не найден.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при отправке AdminMessage: {ex.Message}");
+            }
+        }
+
+        public async Task SendQuestCheckMessage(LeaderBot bot, string text)
+        {
+            try
+            {
+                var channel = await bot._client.GetChannelAsync(GlobalState.QuestCheckChannelId);
+                if (channel != null)
+                {
+                    await channel.SendMessageAsync(text);
+                }
+                else
+                {
+                    Console.WriteLine("QuestCheckChannel не найден.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при отправке QuestCheckMessage: {ex.Message}");
+            }
+        }
+
+        public void StartQuestUpdateLoop(TimeSpan interval)
+        {
+            if (_questUpdateLoopCts != null)
+            {
+                Console.WriteLine("⚠️ Quest update loop already running!");
+                return;
+            }
+
+            _questUpdateLoopCts = new CancellationTokenSource();
+
+            Task.Run(async () =>
+            {
+                Console.WriteLine($"Starting Quest Update Loop, interval = {interval}");
+
+                while (!_questUpdateLoopCts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await UpdateTeamsQuests();
+
+                        Console.WriteLine($"Quest update completed at {DateTime.Now}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error in quest update loop: {ex}");
+                    }
+
+                    // Ждём нужный интервал
+                    await Task.Delay(interval, _questUpdateLoopCts.Token);
+                }
+
+                Console.WriteLine("🛑 Quest update loop stopped.");
+
+            }, _questUpdateLoopCts.Token);
+        }
+
+        public async Task UpdateTeamsQuests()
+        {
+            foreach (var bot in Bots.Values)
+            {
+                await GameCommandHandler.UpdateAllQuestsStates(bot);
+            }
+        }
+
+        public void StopQuestUpdateLoop()
+        {
+            if (_questUpdateLoopCts != null)
+            {
+                _questUpdateLoopCts.Cancel();
+                _questUpdateLoopCts = null;
+            }
+        }
+
+        public void Dispose()
+        {
+            // Останавливаем таймер
+            _questUpdateLoopCts?.Cancel();
+            _questUpdateLoopCts?.Dispose();
+
+            // Останавливаем всех ботов и чистим
+            foreach (var bot in Bots.Values)
+            {
+                bot.Dispose();
+            }
+
+            Bots.Clear();
+
+            Console.WriteLine("LeaderBotManager успешно Dispose.");
+        }
+
+        public string GetGlobalStateJson()
+        {
+            return JsonSerializer.Serialize(GlobalState, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
+        }
+
+        public Exception? SetGlobalStateFromJson(string json)
+        {
+            try
+            {
+                var state = JsonSerializer.Deserialize<GlobalGameState>(json);
+                if (state == null)
+                    return new Exception("Результат десериализации — null");
+
+                GlobalState = state;
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return ex;
+            }
         }
     }
 

@@ -13,5 +13,7 @@ namespace SquadfestBot
         public ulong AdminChannelId { get; set; }
         public ulong QuestCheckChannelId { get; set; }
         public int SomeGlobalScore { get; set; }
+
+        public DateTime QuestStartDate { get; set; } = new DateTime(2025, 7, 1);
     }
 }

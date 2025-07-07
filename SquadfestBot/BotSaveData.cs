@@ -8,12 +8,18 @@ namespace SquadfestBot
 {
     public class BotSaveData
     {
-        public string NotInThisTeamMessage { get; set; } = "Ты не в этой команде.";
-        public string PingMessage { get; set; }  = "Пинг-понг!";
-        public string AlreadyInOtherCommandMessage { get; set; } = "Уже в другой команде.";
-        public string AlreadyInThisCommandMessage { get; set; } = "Уже в этой команде.";
-        public string RemovedFromTheTeamDMMessage { get; set; } = "Ты больше не в нашей команде.";
-        public string AddedToTheTeamDMMessage { get; set; } = "Добро пожаловать в нашу команду!";
-        public string TriedToAddBotInTheTeamMessage { get; set; } = "Он не может быть с нами.";
+        public int TeamScore { get; set; }
+        public ulong QuestChannelId { get; set; }
+        public ulong GlobalChannelId { get; set; }
+        public Dictionary<QuestType, QuestListThreadData> QuestThreads { get; set; } = new();
+        public ulong ScoreMessageId { get; set; }
+    }
+
+    public class QuestListThreadData
+    {
+        public ulong MessageId { get; set; }
+        public ulong ThreadId { get; set; }
+        public ulong ThreadMessageId { get; set; }
+
     }
 }
