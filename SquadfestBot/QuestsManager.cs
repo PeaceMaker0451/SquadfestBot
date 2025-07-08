@@ -63,7 +63,7 @@ namespace SquadfestBot
 
         public List<QuestInTime> GetActiveQuests(int dayOffset = 0, string team = "global")
         {
-            LoadQuests(); // синхронизация с файлами
+            LoadQuests();
 
             var active = new List<QuestInTime>();
 
@@ -72,7 +72,6 @@ namespace SquadfestBot
 
             int globalIndex = 0;
 
-            // Дневные квесты
             if (DailyQuests.TryGetValue(currentDay, out var daily))
             {
                 int i = 0;
@@ -92,7 +91,6 @@ namespace SquadfestBot
                 
             }
 
-            // Недельные квесты
             if (WeeklyQuests.TryGetValue(currentWeek, out var weekly))
             {
                 int i = 0;
@@ -110,7 +108,6 @@ namespace SquadfestBot
                 }
             }
 
-            // Сложные (без срока)
             foreach (var q in HardQuests)
             {
                 active.Add(new QuestInTime
@@ -123,7 +120,6 @@ namespace SquadfestBot
                 });
             }
 
-            // Секретные (без срока)
             foreach (var q in SecretQuests)
             {
                 active.Add(new QuestInTime
@@ -136,7 +132,6 @@ namespace SquadfestBot
                 });
             }
 
-            // Сортировка (необязательно, но можно)
             return active
                 .OrderBy(q => q.QuestType)
                 .ThenBy(q => q.AvalableLimit)
@@ -164,28 +159,20 @@ namespace SquadfestBot
 
             WeeklyQuests[week].Add(quest);
 
-            //AddOrReplace(WeeklyQuests, week, quest);
-
             SaveQuests();
         }
 
         public void AddHardQuest(Quest quest)
         {
             LoadQuests();
-
-            //AddOrReplace(HardQuests, quest);
             HardQuests.Add(quest);
-
             SaveQuests();
         }
 
         public void AddSecretQuest(Quest quest)
         {
             LoadQuests();
-
-            //AddOrReplace(HardQuests, quest);
             SecretQuests.Add(quest);
-
             SaveQuests();
         }
 

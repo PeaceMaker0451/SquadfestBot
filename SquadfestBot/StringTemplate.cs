@@ -24,7 +24,6 @@ namespace SquadfestBot
             return result;
         }
 
-        // Для удобства — перегрузка с params
         public static string Format(string template, params (string key, string value)[] variables)
         {
             var dict = variables.ToDictionary(v => v.key, v => v.value);

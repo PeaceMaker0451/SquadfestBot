@@ -9,7 +9,6 @@ namespace SquadfestBot
     public class LeaderPersonality
     {
         public string TeamName { get; set; } = "Солнышки";
-        //public string PingMessage { get; set; } = "Пинг-понг!";
         public string AlreadyInOtherCommandMessage { get; set; } = "Уже в другой команде.";
         public string AlreadyInThisCommandMessage { get; set; } = "Уже в этой команде.";
         public string RemovedFromTheTeamDMMessage { get; set; } = "Ты больше не в нашей команде.";

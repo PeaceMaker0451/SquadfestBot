@@ -19,7 +19,7 @@ namespace SquadfestBot
         public Quest Quest { get; set; }
         public QuestType QuestType { get; set; }
         public DateTime AvalableLimit { get; set; }
-        public int Index { get; set; } // глобальный индекс
+        public int Index { get; set; }
         public int[] BaseIndex { get; set; }
     }
 }

@@ -240,14 +240,25 @@ namespace SquadfestBot
                         name: "edit",
                         description: "Изменить квест",
                         type: ApplicationCommandOptionType.SubCommand,
-                        options: EditOrDeleteQuestCommandOptions()
+                        options: EditQuestCommandOptions()
                     ),
                     new DiscordApplicationCommandOption(
                         name: "remove",
                         description: "Удалить квест",
                         type: ApplicationCommandOptionType.SubCommand,
-                        options: EditOrDeleteQuestCommandOptions()
-                    )
+                        options: new List<DiscordApplicationCommandOption>
+                        {
+                            new DiscordApplicationCommandOption("type", "Тип квеста", ApplicationCommandOptionType.String, true,
+                                choices: new List<DiscordApplicationCommandOptionChoice>
+                                {
+                                    new("Ежедневный", "daily"),
+                                    new("Еженедельный", "weekly"),
+                                    new("Сложный", "hard"),
+                                    new("Секретный", "secret")
+                                }),
+                            new DiscordApplicationCommandOption("index", "Индекс квеста (в списке или внутри дня/недели)", ApplicationCommandOptionType.Integer, true),
+                            new DiscordApplicationCommandOption("day-or-week", "Номер дня (для daily) или недели (для weekly)", ApplicationCommandOptionType.Integer, false),
+                        })
                 }
 ), //quest
             new DiscordApplicationCommand(
@@ -2346,12 +2357,12 @@ namespace SquadfestBot
                 new DiscordApplicationCommandOption("limit", "Лимит выполнений", ApplicationCommandOptionType.Integer, true),
                 new DiscordApplicationCommandOption("day-or-week", "Номер дня (для daily) или недели (для weekly)", ApplicationCommandOptionType.Integer, false),
                 new DiscordApplicationCommandOption("global-limit", "Глобальный лимит", ApplicationCommandOptionType.Boolean, false),
-                new DiscordApplicationCommandOption("help-text", "Текст подсказки", ApplicationCommandOptionType.String, false),
+                //new DiscordApplicationCommandOption("help-text", "Текст подсказки", ApplicationCommandOptionType.String, false),
                 new DiscordApplicationCommandOption("explanation", "Описание для админов", ApplicationCommandOptionType.String, false)
             };
         }
 
-        static List<DiscordApplicationCommandOption> EditOrDeleteQuestCommandOptions()
+        static List<DiscordApplicationCommandOption> EditQuestCommandOptions()
         {
             return new List<DiscordApplicationCommandOption>
             {
@@ -2370,7 +2381,6 @@ namespace SquadfestBot
                 new DiscordApplicationCommandOption("reward", "Новая награда", ApplicationCommandOptionType.Integer, false),
                 new DiscordApplicationCommandOption("limit", "Новый лимит выполнений", ApplicationCommandOptionType.Integer, false),
                 new DiscordApplicationCommandOption("global-limit", "Глобальный лимит?", ApplicationCommandOptionType.Boolean, false),
-                new DiscordApplicationCommandOption("help-text", "Новый текст подсказки", ApplicationCommandOptionType.String, false),
                 new DiscordApplicationCommandOption("explanation", "Новое админ-пояснение", ApplicationCommandOptionType.String, false)
             };
         }

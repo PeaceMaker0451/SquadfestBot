@@ -1,12 +1,9 @@
 ﻿using DSharpPlus;
 using DSharpPlus.EventArgs;
-using DSharpPlus.Entities;
 using DSharpPlus.SlashCommands;
 using System.Text.Json;
-using Newtonsoft.Json.Linq;
 using DSharpPlus.Interactivity.Extensions;
 using DSharpPlus.Interactivity;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SquadfestBot
 {

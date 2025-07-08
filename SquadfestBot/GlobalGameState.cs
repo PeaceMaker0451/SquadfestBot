@@ -9,10 +9,8 @@ namespace SquadfestBot
     public class GlobalGameState
     {
         public ulong GuildId { get; set; }
-        public ulong GlobalChannelId { get; set; }
         public ulong AdminChannelId { get; set; }
         public ulong QuestCheckChannelId { get; set; }
-        public int SomeGlobalScore { get; set; }
 
         public DateTime QuestStartDate { get; set; } = new DateTime(2025, 7, 1);
     }

@@ -31,7 +31,6 @@ public class Program
 
         try
         {
-            // Уничтожаем старый менеджер + все боты
             BotManager.Dispose();
         }
         catch (Exception ex)

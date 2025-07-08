@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace SquadfestBot
 {
@@ -95,18 +92,4 @@ namespace SquadfestBot
             }
         }
     }
-
-    //public class ConfirmMessageData
-    //{
-    //    public ulong MessageId { get; set; }
-    //    public string TeamId { get; set; }
-
-    //    public ConfirmMessageData() { } // вот он — пустой
-
-    //    public ConfirmMessageData(ulong messageId, string teamId)
-    //    {
-    //        MessageId = messageId;
-    //        TeamId = teamId;
-    //    }
-    //}
 }

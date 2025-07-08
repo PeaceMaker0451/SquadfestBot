@@ -132,26 +132,6 @@ namespace SquadfestBot
             return null;
         }
 
-        public async Task SendGlobalMessage(LeaderBot bot, string text)
-        {
-            try
-            {
-                var channel = await bot._client.GetChannelAsync(GlobalState.GlobalChannelId);
-                if (channel != null)
-                {
-                    await channel.SendMessageAsync(text);
-                }
-                else
-                {
-                    Console.WriteLine("GlobalChannel не найден.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка при отправке GlobalMessage: {ex.Message}");
-            }
-        }
-
         public async Task SendAdminMessage(string text)
         {
             try
@@ -248,11 +228,9 @@ namespace SquadfestBot
 
         public void Dispose()
         {
-            // Останавливаем таймер
             _questUpdateLoopCts?.Cancel();
             _questUpdateLoopCts?.Dispose();
 
-            // Останавливаем всех ботов и чистим
             foreach (var bot in Bots.Values)
             {
                 bot.Dispose();

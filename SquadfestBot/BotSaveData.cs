@@ -12,7 +12,6 @@ namespace SquadfestBot
         public ulong QuestChannelId { get; set; }
         public ulong GlobalChannelId { get; set; }
         public Dictionary<QuestType, QuestListThreadData> QuestThreads { get; set; } = new();
-        public ulong ScoreMessageId { get; set; }
     }
 
     public class QuestListThreadData
