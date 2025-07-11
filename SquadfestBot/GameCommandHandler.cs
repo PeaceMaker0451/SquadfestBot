@@ -1461,9 +1461,6 @@ namespace SquadfestBot
                     return;
                 }
 
-                quest.Quest.NoteCheck(userId);
-                Program.QuestManager.SaveQuests();
-
                 var sb = new StringBuilder();
                 sb.AppendLine($"# ✅ Новая заявка на задание от {e.Interaction.User.Mention}:");
                 sb.AppendLine($"**[{quest.QuestType}] {quest.Quest.Title}**");
@@ -1474,7 +1471,7 @@ namespace SquadfestBot
 
                 // Получаем канал
                 var guild = await bot._client.GetGuildAsync(Program.BotManager.GlobalState.GuildId);
-                var checkChannel = guild.GetChannel(Program.BotManager.GlobalState.QuestCheckChannelId);
+                var checkChannel = await bot._client.GetChannelAsync(Program.BotManager.GlobalState.QuestCheckChannelId);
 
                 // Создаём кнопки
                 var acceptButton = new DiscordButtonComponent(
@@ -1489,7 +1486,6 @@ namespace SquadfestBot
 
                 DiscordMessage message;
 
-                // Отложенный ответ (чтобы не словить тайм-аут Discord)
                 await e.Interaction.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
                 
                 try
@@ -1498,15 +1494,15 @@ namespace SquadfestBot
 
                     if (file1Option != null)
                     {
-                        await messageBuilder.ForwardFile(file1Option, e.Interaction);
+                        await messageBuilder.ForwardFile(file1Option, e.Interaction, "File1");
                     }
                     if (file2Option != null)
                     {
-                        await messageBuilder.ForwardFile(file2Option, e.Interaction);
+                        await messageBuilder.ForwardFile(file2Option, e.Interaction, "File2");
                     }
                     if (file3Option != null)
                     {
-                        await messageBuilder.ForwardFile(file3Option, e.Interaction);
+                        await messageBuilder.ForwardFile(file3Option, e.Interaction, "File3");
                     }
 
                     messageBuilder.AddComponents(acceptButton, rejectButton);
@@ -1517,7 +1513,6 @@ namespace SquadfestBot
                            .WithContent($"✅ Твоя заявка по квесту [{index + 1}] \"{quest.Quest.Title}\" отправлена на проверку!" +
                            $"\n_{selectedPhrase}_"));
 
-                    // Обновляем кнопки (вставляем message.Id)
                     acceptButton = new DiscordButtonComponent(
                         ButtonStyle.Success,
                         customId: $"accept|{quest.QuestType}|{quest.BaseIndex[0]}|{quest.BaseIndex[1]}|{userId}|{message.Id}",
@@ -1534,10 +1529,13 @@ namespace SquadfestBot
                     await message.ModifyAsync(new DiscordMessageBuilder()
                         .WithContent(sb.ToString())
                         .AddComponents(acceptButton, rejectButton));
+
+                    quest.Quest.NoteCheck(userId);
+                    Program.QuestManager.SaveQuests();
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Ошибка done] {ex.Message}");
+                    Console.WriteLine($"[Ошибка done] {ex}");
 
                     await e.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder()
                         .WithContent("❌ Произошла ошибка при обработке твоей заявки. Пожалуйста, попробуй снова."));
@@ -1924,7 +1922,7 @@ namespace SquadfestBot
             Program.QuestManager.SaveQuests();
         }
 
-        private static async Task<DiscordMessageBuilder> ForwardFile(this DiscordMessageBuilder message, DiscordInteractionDataOption? option, DiscordInteraction interaction)
+        private static async Task<DiscordMessageBuilder> ForwardFile(this DiscordMessageBuilder message, DiscordInteractionDataOption? option, DiscordInteraction interaction, string? nameOverride = null)
         {
             if (option == null)
                 throw new NullReferenceException("option was null");
@@ -1935,11 +1933,23 @@ namespace SquadfestBot
             var http = new HttpClient();
             var fileBytes = await http.GetStreamAsync(attachment.Url);
 
+            string name;
+
+            if (nameOverride != null)
+            {
+                var extension = Path.GetExtension(attachment.FileName);
+                name = Path.GetFileNameWithoutExtension(nameOverride) + extension;
+            }
+            else
+            {
+                name = attachment.FileName;
+            }
+
             var memoryStream = new MemoryStream();
             await fileBytes.CopyToAsync(memoryStream);
             memoryStream.Position = 0;
 
-            message.AddFile(attachment.FileName, memoryStream);
+            message.AddFile(name, memoryStream);
             return message;
         }
 

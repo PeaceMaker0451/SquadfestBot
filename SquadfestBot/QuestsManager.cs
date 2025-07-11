@@ -67,6 +67,9 @@ namespace SquadfestBot
 
             var active = new List<QuestInTime>();
 
+            if (DateTime.UtcNow < StartDate)
+                return active;
+            
             var currentDay = (DateTime.UtcNow - StartDate).Days + dayOffset;
             var currentWeek = (currentDay) / 7;
 

@@ -2,18 +2,31 @@
 using SquadfestBot;
 using DSharpPlus;
 using DSharpPlus.Entities;
-using PunkCommandSystem;
 using System.Security.Cryptography.X509Certificates;
+using System.Linq.Expressions;
 
 public class Program
 {
-    public static LeaderBotManager BotManager = new LeaderBotManager();
-    public static QuestManager QuestManager = new QuestManager();
+    public static LeaderBotManager BotManager;
+    public static QuestManager QuestManager;
 
     public static bool ServiceMode { get; private set; } = false;
     public static Action ServiceModeOn;
     public static async Task Main(string[] args)
     {
+        try
+        {
+            BotManager = new LeaderBotManager();
+            QuestManager = new QuestManager();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка инициализации бота - {ex}");
+            Console.ReadLine();
+        }
+        
+        
+        
         await StartAsync();
         await Task.Delay(-1);
     }
