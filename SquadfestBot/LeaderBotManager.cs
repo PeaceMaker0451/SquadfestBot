@@ -63,7 +63,6 @@ namespace SquadfestBot
 
         private async Task OnComponentReceived(LeaderBot bot, DSharpPlus.EventArgs.InteractionCreateEventArgs e)
         {
-            Console.WriteLine("Ловлю компонент");
             await GameCommandHandler.HandleComponent(bot, e, GlobalState);
         }
 

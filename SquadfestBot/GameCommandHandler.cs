@@ -818,7 +818,7 @@ namespace SquadfestBot
                     await e.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder()
                         .WithContent($"Ошибка отправки сообщения в канал: {ex.Message}"));
 
-                    Console.WriteLine(ex);
+                    await ErrorLog(ex);
                     await Program.BotManager.SendAdminMessage(ex.ToString());
                 }
 
@@ -873,8 +873,8 @@ namespace SquadfestBot
                     await e.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder()
                         .WithContent($"Ошибка редактирование сообщения в канал: {ex.Message}"));
 
-                    Console.WriteLine(ex);
-                    await Program.BotManager.SendAdminMessage(ex.ToString());
+                    await ErrorLog(ex);
+                    //await Program.BotManager.SendAdminMessage(ex.ToString());
                 }
 
                 return;
@@ -913,8 +913,8 @@ namespace SquadfestBot
                     await e.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder()
                         .WithContent($"Ошибка удаления сообщения в канале: {ex.Message}"));
 
-                    Console.WriteLine(ex);
-                    await Program.BotManager.SendAdminMessage(ex.ToString());
+                    await ErrorLog(ex);
+                    //await Program.BotManager.SendAdminMessage(ex.ToString());
                 }
 
                 return;
@@ -1126,41 +1126,34 @@ namespace SquadfestBot
                 {
                     var interactivity = bot._client.GetInteractivity();
 
-                    //await e.Interaction.CreateResponseAsync(InteractionResponseType.DeferredChannelMessageWithSource);
-
                     questManager.LoadQuests();
 
                     var pages = new List<Page>();
 
-                    // DAILY
                     var dailyPages = BuildQuestList(questManager.DailyQuests, QuestType.Daily, questManager.StartDate);
                     pages.AddRange(dailyPages.Select((content, i) => new Page
                     {
                         Content = $"{content}\n\n**Страница {i + 1} из {dailyPages.Count} - (Ежедневные)**"
                     }));
 
-                    // WEEKLY
                     var weeklyPages = BuildQuestList(questManager.WeeklyQuests, QuestType.Weekly, questManager.StartDate);
                     pages.AddRange(weeklyPages.Select((content, i) => new Page
                     {
                         Content = $"{content}\n\n**Страница {i + 1} из {weeklyPages.Count} - (Еженедельные)**"
                     }));
 
-                    // HARD
                     var hardPages = BuildQuestList(questManager.HardQuests, QuestType.Hard);
                     pages.AddRange(hardPages.Select((content, i) => new Page
                     {
                         Content = $"{content}\n\n**Страница {i + 1} из {hardPages.Count}  - (Сложные)**"
                     }));
 
-                    // SECRET
                     var secretPages = BuildQuestList(questManager.SecretQuests, QuestType.Secret);
                     pages.AddRange(secretPages.Select((content, i) => new Page
                     {
                         Content = $"{content}\n\n**Страница {i + 1} из {secretPages.Count}  - (Секретные)**"
                     }));
 
-                    // Пагинация
                     await interactivity.SendPaginatedResponseAsync(
                         interaction: e.Interaction,
                         ephemeral: false,
@@ -1241,26 +1234,43 @@ namespace SquadfestBot
                             return;
                         }
 
-                        switch (type)
+                        try
                         {
-                            case "daily":
-                                questManager.RemoveDailyQuest(dayOrWeek!.Value, index);
-                                break;
-                            case "weekly":
-                                questManager.RemoveWeeklyQuest(dayOrWeek!.Value, index);
-                                break;
-                            case "hard":
-                                questManager.RemoveHardQuest(index);
-                                break;
-                            case "secret":
-                                questManager.RemoveSecretQuest(index);
-                                break;
-                        }
+                            switch (type)
+                            {
+                                case "daily":
+                                    questManager.RemoveDailyQuest(dayOrWeek!.Value, index);
+                                    break;
+                                case "weekly":
+                                    questManager.RemoveWeeklyQuest(dayOrWeek!.Value, index);
+                                    break;
+                                case "hard":
+                                    questManager.RemoveHardQuest(index);
+                                    break;
+                                case "secret":
+                                    questManager.RemoveSecretQuest(index);
+                                    break;
+                            }
 
-                        await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
-                            new DiscordInteractionResponseBuilder()
-                                .WithContent($"❌ Квест удалён.")
-                                .AsEphemeral(true));
+                            await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                                new DiscordInteractionResponseBuilder()
+                                    .WithContent($"❌ Квест удалён.")
+                                    .AsEphemeral(true));
+                        }
+                        catch (ArgumentOutOfRangeException ex)
+                        {
+                            await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                                new DiscordInteractionResponseBuilder()
+                                    .WithContent($"❌ Ошибка удаления квеста: отсутствует квест под индексом {index}")
+                                    .AsEphemeral(true));
+                        }
+                        catch (Exception ex)
+                        {
+                            await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                                new DiscordInteractionResponseBuilder()
+                                    .WithContent($"❌ Ошибка удаления квеста: {ex.Message}")
+                                    .AsEphemeral(true));
+                        }
                     }
 
                     return;
@@ -1339,18 +1349,28 @@ namespace SquadfestBot
             if (e.Interaction.Data.Name == "quests")
             {
                 var active = Program.QuestManager.GetActiveQuests(team: bot.Id);
-                var sb = new StringBuilder();
+                var sb = new List<StringBuilder>();
 
                 var random = new Random();
                 var phrases = bot.Personality.QuestListPhrases;
                 var selectedPhrase = phrases.Count > 0 ? phrases[random.Next(phrases.Count)] : "";
 
-                sb.AppendLine($"_{StringTemplate.Format(selectedPhrase, variables)}_");
-                sb.AppendLine($"**📋 Текущие активные квесты:**\n");
+                var interactivity = bot._client.GetInteractivity();
 
+                int index = 0;
+                sb.Add(new StringBuilder());
+
+                sb[index].AppendLine($"_{StringTemplate.Format(selectedPhrase, variables)}_");
+                sb[index].AppendLine($"**📋 Текущие активные квесты:**\n");
+;                
                 foreach (var q in active)
                 {
-                    // Время в МСК
+                    if (sb[index].Length >= 1700)
+                    {
+                        index++;
+                        sb.Add(new StringBuilder());
+                    }
+
                     var mskTime = TimeZoneInfo.ConvertTimeFromUtc(q.AvalableLimit,
                         TimeZoneInfo.FindSystemTimeZoneById("Russian Standard Time"));
 
@@ -1360,26 +1380,26 @@ namespace SquadfestBot
 
                     if(!q.Quest.LimitReached(bot.Id))
                     {
-                        sb.AppendLine($"# `[{q.Index + 1}]` [{q.QuestType}] **{q.Quest.Title}** — *{q.Quest.Reward}₧* " +
+                        sb[index].AppendLine($"# `[{q.Index + 1}]` [{q.QuestType}] **{q.Quest.Title}** — *{q.Quest.Reward}₧* " +
                         $"[{(q.Quest.CompletionsByTeams.ContainsKey(bot.Id) ? q.Quest.CompletionsByTeams[bot.Id] : "0")}/{q.Quest.CompletionLimit}] *({(q.Quest.GlobalLimit ? "Глобальный" : "По командам")})* " +
                         $"\n{q.Quest.Description}\n⏳ до: **{expires}**");
                     }
-                    else //{ (q.Quest.CompletedPlayers.Contains(playerId) ? "✅" : "")}
+                    else
                     {
-                        sb.AppendLine($"# ~~`[{q.Index + 1}]` [{q.QuestType}] **{q.Quest.Title}** — *{q.Quest.Reward}₧* " +
+                        sb[index].AppendLine($"# ~~`[{q.Index + 1}]` [{q.QuestType}] **{q.Quest.Title}** — *{q.Quest.Reward}₧* " +
                         $"[{(q.Quest.CompletionsByTeams.ContainsKey(bot.Id) ? q.Quest.CompletionsByTeams[bot.Id] : "0")}/{q.Quest.CompletionLimit}] *({(q.Quest.GlobalLimit ? "Глобальный" : "По командам")})* ~~" +
                         $"\n~~{q.Quest.Description}\n⏳ до: **{expires}**~~");
                     }
 
                     if(q.Quest.CompletedPlayers.Count >= 1)
                     {
-                        sb.AppendLine($"Квест выполнили: ");
+                        sb[index].AppendLine($"Квест выполнили: ");
                         foreach (var player in q.Quest.CompletedPlayers)
                         {
                             if (Program.BotManager.GetPlayerLeader(player) == bot.Id)
                             {
                                 var user = await bot._client.GetUserAsync(player);
-                                sb.AppendLine($"- друг **{user.Username}** {(player == playerId ? "👈 это ты 👈" : "")}");
+                                sb[index].AppendLine($"- друг **{user.Username}** {(player == playerId ? "👈 это ты 👈" : "")}");
                             }
                         }
                         foreach (var player in q.Quest.CompletedPlayers)
@@ -1387,20 +1407,29 @@ namespace SquadfestBot
                             if (Program.BotManager.GetPlayerLeader(player) != bot.Id)
                             {
                                 var user = await bot._client.GetUserAsync(player);
-                                sb.AppendLine($"- соперник **{user.Username}** {(player == playerId ? "👈это ты👈" : "")}");
+                                sb[index].AppendLine($"- соперник **{user.Username}** {(player == playerId ? "👈это ты👈" : "")}");
                             }
                         }
                     }
 
-                    sb.AppendLine("");
-                    //phrases = bot.SaveData.QuestCompletedPhrases;
-                    //selectedPhrase = phrases.Count > 0 ? phrases[random.Next(phrases.Count)] : "";
-                    //sb.AppendLine($"_{selectedPhrase}_\n");
-
+                    sb[index].AppendLine("");
                 }
 
-                await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
-                    .WithContent(sb.ToString()));
+                List<Page> pages = new List<Page>();
+
+                pages.AddRange(sb.Select((content, i) => new Page
+                {
+                    Content = $"{content}\n\n**Страница {i + 1} из {sb.Count}**"
+                }));
+
+                await interactivity.SendPaginatedResponseAsync(
+                    interaction: e.Interaction,
+                    ephemeral: false,
+                    user: e.Interaction.User,
+                    pages: pages,
+                    behaviour: DSharpPlus.Interactivity.Enums.PaginationBehaviour.WrapAround,
+                    deletion: DSharpPlus.Interactivity.Enums.ButtonPaginationBehavior.Disable
+);
             }
 
             if (e.Interaction.Data.Name == "done")
@@ -1535,7 +1564,8 @@ namespace SquadfestBot
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Ошибка done] {ex}");
+                    Console.WriteLine($"[{bot.Id}] - {e.Interaction.User.Username} - {quest.Quest.Title} Ошибка отправки выполнения задания: {ex}");
+                    await Program.BotManager.SendAdminMessage($"[{bot.Id}] - {e.Interaction.User.Mention} - {quest.Quest.Title} Ошибка отправки выполнения задания: {ex}");
 
                     await e.Interaction.EditOriginalResponseAsync(new DiscordWebhookBuilder()
                         .WithContent("❌ Произошла ошибка при обработке твоей заявки. Пожалуйста, попробуй снова."));
@@ -1555,7 +1585,7 @@ namespace SquadfestBot
 
                 var random = new Random();
                 List<string> phrases;
-                string selectedPhrase; //phrases.Count > 0 ? phrases[random.Next(phrases.Count)] : "";
+                string selectedPhrase;
 
                 foreach (var _bot in Program.BotManager.Bots.Values)
                 {
@@ -1577,7 +1607,6 @@ namespace SquadfestBot
                         bestPlayer = player.Id;
                     }
                 }
-
 
                 sb.AppendLine($"# СЧЕТ НАШЕЙ КОМАНДЫ {bot.SaveData.TeamScore}₧");
 
@@ -1661,8 +1690,7 @@ namespace SquadfestBot
             }
             catch(Exception ex)
             {
-                Console.WriteLine($"[{bot.Id}] - Ошибка получения Гильдии/Канала - {ex}");
-                Program.BotManager.SendAdminMessage($"[{bot.Id}] - Ошибка получения Гильдии/Канала - {ex}");
+                await ErrorLog($"[{bot.Id}] - Ошибка получения Гильдии/Канала - {ex}");
 
                 return;
             }
@@ -1675,13 +1703,11 @@ namespace SquadfestBot
 
                 bool needCreate = false;
 
-                // Проверяем ветку
                 DiscordThreadChannel thread = null;
                 DiscordMessage mainMessage = null;
 
                 if (botSaveData.QuestThreads.TryGetValue(type, out var threadData) && threadData.ThreadId != 0 && threadData.MessageId != 0)
                 {
-                    //thread = guild.Threads.ContainsKey(threadData.ThreadId) ? guild.Threads[threadData.ThreadId] : null;
 
                     var threads = await guild.ListActiveThreadsAsync();
                     thread = threads.Threads.First(p => p.Id == threadData.ThreadId);
@@ -1694,15 +1720,13 @@ namespace SquadfestBot
                         }
                         catch(Exception ex)
                         {
-                            Console.WriteLine($"[{bot.Id}] Сообщение для {type} не найдено — будет пересоздано ({ex.Message})");
-                            Program.BotManager.SendAdminMessage($"[{bot.Id}] Сообщение для {type} не найдено — будет пересоздано ({ex.Message})");
+                            await ErrorLog($"[{bot.Id}] Сообщение для {type} не найдено — будет пересоздано ({ex.Message})");
                             mainMessage = null;
                         }
                     }
                     else
                     {
-                        Console.WriteLine($"[{bot.Id}] Ветка {type} не найдена — будет пересоздана");
-                        Program.BotManager.SendAdminMessage($"[{bot.Id}] Ветка {type} не найдена — будет пересоздана");
+                        await ErrorLog($"[{bot.Id}] Ветка {type} не найдена — будет пересоздана");
                     }
                 }
                 else
@@ -1721,7 +1745,6 @@ namespace SquadfestBot
 
                         var newThread = await newMsg.CreateThreadAsync($"{title} • {DateTime.UtcNow:dd.MM.yyyy}", AutoArchiveDuration.Week);
 
-                        // Сохраняем
                         botSaveData.QuestThreads[type] = new QuestListThreadData
                         {
                             ThreadId = newThread.Id,
@@ -1730,17 +1753,12 @@ namespace SquadfestBot
 
                         bot.SaveData = botSaveData;
 
-                        Console.WriteLine($"[{bot.Id}] Создана ветка {newThread.Name} для типа {type}");
-                        Program.BotManager.SendAdminMessage($"[{bot.Id}] Создана ветка {newThread.Name} для типа {type}");
+                        await ErrorLog($"[{bot.Id}] Создана ветка {newThread.Name} для типа {type}");
                     }
                     catch(Exception ex)
                     {
-                        Console.WriteLine($"[{bot.Id}] Ошибка создания квест-ветки - {ex}");
-                        Program.BotManager.SendAdminMessage($"[{bot.Id}] Ошибка создания квест-ветки - {ex}");
+                        await ErrorLog($"[{bot.Id}] Ошибка создания квест-ветки - {ex}");
                     }
-                    
-
-                    
                 }
             }
         }
@@ -1764,7 +1782,7 @@ namespace SquadfestBot
 
             if (!bot.SaveData.QuestThreads.ContainsKey(type))
             {
-                Console.WriteLine($"[{bot.Id}] Нет ветки для {type}, запускаю создание...");
+                await ErrorLog($"[{bot.Id}] Нет ветки для {type}, запускаю создание...");
                 await EnsureQuestThreads(bot);
             }
 
@@ -1777,7 +1795,7 @@ namespace SquadfestBot
 
             if (thread == null)
             {
-                Console.WriteLine($"[{bot.Id}] Не найдена ветка {threadData.ThreadId} — пересоздаю...");
+                await ErrorLog($"[{bot.Id}] Не найдена ветка {threadData.ThreadId} — пересоздаю...");
                 await EnsureQuestThreads(bot);
                 threadData = botSaveData.QuestThreads[type];
                 threads = await guild.ListActiveThreadsAsync();
@@ -1847,13 +1865,13 @@ namespace SquadfestBot
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[{bot.Id}] Сообщение {threadData.ThreadMessageId} в ветке {thread.Name} не найдено или не доступно. Причина: {ex.Message}");
+                await ErrorLog($"[{bot.Id}] Сообщение {threadData.ThreadMessageId} в ветке {thread.Name} не найдено или не доступно. Причина: {ex.Message}");
             }
 
             if (myMsg != null)
             {
                 await myMsg.ModifyAsync(sb.ToString());
-                Console.WriteLine($"[{bot.Id}] Сообщение обновлено в ветке {thread.Name}");
+                await ErrorLog($"[{bot.Id}] Сообщение обновлено в ветке {thread.Name}");
             }
             else
             {
@@ -1863,7 +1881,7 @@ namespace SquadfestBot
                 botSaveData.QuestThreads[type] = threadData;
                 bot.SaveData = botSaveData;
 
-                Console.WriteLine($"[{bot.Id}] Новое сообщение создано в ветке {thread.Name}");
+                await ErrorLog($"[{bot.Id}] Новое сообщение создано в ветке {thread.Name}");
             }
         }
 
@@ -1884,7 +1902,7 @@ namespace SquadfestBot
                 .ToList();
 
             var guild = await bot._client.GetGuildAsync(Program.BotManager.GlobalState.GuildId);
-            var globalChannel = guild.GetChannel(bot.SaveData.GlobalChannelId);
+            var globalChannel = await bot._client.GetChannelAsync(bot.SaveData.GlobalChannelId);
 
             foreach (var q in activeQuests)
             {
@@ -1904,18 +1922,14 @@ namespace SquadfestBot
                     {
                         await globalChannel.SendMessageAsync($"{mainMessage}\n\n_{StringTemplate.Format(phrase, variables)}_");
 
-                        Console.WriteLine($"Check {q.Quest.Title}");
+                        await ErrorLog($"Check {q.Quest.Title}");
                         Program.QuestManager.GetOriginalQuest(q).PresentedByTeams[bot.Id] = true;
                     }
                     catch(Exception ex)
                     {
                         var message = $"Ошибка анонса квестов: {bot.Id} - {q.Quest.Title} \n{ex}";
-                        Console.WriteLine(message);
-                        Program.BotManager.SendAdminMessage(message);
+                        await ErrorLog(message);
                     }
-                    
-
-                    
                 }
             }
 
@@ -1989,7 +2003,7 @@ namespace SquadfestBot
                     }
                     catch(Exception ex)
                     {
-                        Console.WriteLine($"{ex}");
+                        ErrorLog($"{ex}");
                     }
 
 
@@ -2004,12 +2018,12 @@ namespace SquadfestBot
 
                     try
                     {
-                        string message = $"## Квест **\"{q.Quest.Title}\"** был спизжен у команды **{bot.Personality.TeamName}**!";
+                        string message = $"## Квест **\"{q.Quest.Title}\"** был украден у команды **{bot.Personality.TeamName}**!";
                         await globalChannel.SendMessageAsync(StringTemplate.Format($"{message}\n\n_{phrase}_", variables));
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"{ex}");
+                        ErrorLog($"{ex}");
                     }
 
                     Program.QuestManager.GetOriginalQuest(q).CompletedByTeams[bot.Id] = true;
@@ -2132,8 +2146,7 @@ namespace SquadfestBot
                     var log = $"[{bot.Id}] - globalChannel оказался null и я хз почему" +
                         $"\nglobalChannel: {globalChannel}, GlobalChannelId: {bot.SaveData.GlobalChannelId}, Guild: {guild}, ({guild.GetChannel(bot.SaveData.GlobalChannelId)})";
                     var ex = new NullReferenceException(log);
-                    Console.WriteLine($"{ex} - {bot._client.ToString()}");
-                    await Program.BotManager.SendAdminMessage(ex.ToString());
+                    await ErrorLog($"{ex} - {bot._client.ToString()}");
                     return;
                 }    
                 
@@ -2153,7 +2166,7 @@ namespace SquadfestBot
                     else
                         originalQuest.ExpiredByTeams[team] = true;
 
-                    Console.WriteLine($"[{bot.Id}] Объявлено просроченное задание: {quest.Quest.Title}");
+                    ErrorLog($"[{bot.Id}] Объявлено просроченное задание: {quest.Quest.Title}");
                 }
             }
 
@@ -2190,7 +2203,7 @@ namespace SquadfestBot
             var playerId = ulong.Parse(parts[4]);
             var messageId = ulong.Parse(parts[5]);
 
-            Console.WriteLine($"[{bot.Id}] [Component] {action} quest={questType} index0={questIndex0} index1={questIndex1} player={playerId} messageId={messageId}");
+            ErrorLog($"[{bot.Id}] [Component] {action} quest={questType} index0={questIndex0} index1={questIndex1} player={playerId} messageId={messageId}");
 
             bool accept = action == "accept";
             Quest quest = questType switch
@@ -2217,7 +2230,6 @@ namespace SquadfestBot
             var checkChannel = guild.GetChannel(Program.BotManager.GlobalState.QuestCheckChannelId);
             var msg = await checkChannel.GetMessageAsync(messageId);
 
-            // если лимит уже исчерпан, уведомляем проверяющего
             if (reached)
             {
                 quest.RemoveCheck(playerId);
@@ -2227,25 +2239,25 @@ namespace SquadfestBot
                         .WithContent($"⚠️ Квест \"{quest.Title}\" больше не доступен для выполнения — лимит исчерпан.")
                         .AsEphemeral(true));
 
-                // пробуем обновить исходное сообщение
                 try
                 {
                     await msg.ModifyAsync(new DiscordMessageBuilder()
                         .WithContent(msg.Content + $"\n\n⛔️ Действие не выполнено — лимит по квесту исчерпан."));
 
-                    Console.WriteLine($"[{bot.Id}] Изменено сообщение {messageId} (лимит исчерпан)");
+                    await ErrorLog($"[{bot.Id}] Изменено сообщение {messageId} (лимит исчерпан)");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[{bot.Id}] Ошибка при обновлении сообщения (лимит исчерпан): {ex}");
+                    await ErrorLog($"[{bot.Id}] Ошибка при обновлении сообщения (лимит исчерпан): {ex}");
                 }
 
                 return;
             }
 
-            // пытаемся выполнить действие
             try
             {
+                quest.ActiveConfirmMessages.RemoveAll(kvp => kvp.Value == messageId);
+
                 if (accept)
                 {
                     quest.NoteCompletion(bot.Id, playerId);
@@ -2261,9 +2273,9 @@ namespace SquadfestBot
                             var message = await checkChannel.GetMessageAsync(messageData.Value);
 
                             await message.ModifyAsync(new DiscordMessageBuilder()
-                                .WithContent(message.Content + $"\n\n⛔️ Действие не выполнено — лимит по квесту исчерпан."));
+                                .WithContent(message.Content + $"\n\n## Лимит по квесту исчерпан."));
 
-                            Console.WriteLine($"[{bot.Id}] Изменено сообщение {message} (лимит исчерпан)");
+                            await ErrorLog($"[{bot.Id}] Изменено сообщение {messageId} (лимит исчерпан)");
                         }
                     }
                 }
@@ -2283,12 +2295,10 @@ namespace SquadfestBot
                 return;
             }
 
-            // выберем фразу
             var random = new Random();
             var phrases = accept ? bot.Personality.QuestAcceptedDMPhrases : bot.Personality.QuestRejectedDMPhrases;
             var selectedPhrase = phrases.Count > 0 ? phrases[random.Next(phrases.Count)] : "";
 
-            // пишем пользователю в ЛС
             try
             {
                 var member = await e.Interaction.Guild.GetMemberAsync(playerId);
@@ -2312,7 +2322,7 @@ namespace SquadfestBot
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[{bot.Id}] Не удалось отправить ЛС пользователю {playerId}: {ex}");
+                await ErrorLog($"[{bot.Id}] Не удалось отправить ЛС пользователю {playerId}: {ex}");
             }
 
             var user = await bot._client.GetUserAsync(playerId);
@@ -2323,19 +2333,17 @@ namespace SquadfestBot
 
             try
             {
-
-
                 await msg.ModifyAsync(new DiscordMessageBuilder()
                     .WithContent(msg.Content + $"\n\n⛔️ Действие завершено: {(accept ? "✅ Подтверждено" : "❌ Отклонено")} пользователем {e.Interaction.User.Mention}"));
 
-                Console.WriteLine($"[{bot.Id}] Изменено сообщение {messageId} (результат: {action})");
+                await ErrorLog($"[{bot.Id}] Изменено сообщение {messageId} (результат: {action})");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[{bot.Id}] Ошибка при обновлении сообщения: {ex}");
+                await ErrorLog($"[{bot.Id}] Ошибка при обновлении сообщения: {ex}");
             }
 
-            Program.BotManager.UpdateTeamsQuests();
+            await Program.BotManager.UpdateTeamsQuests();
         }
 
         public static async Task UpdateAllQuestsStates(LeaderBot bot)
@@ -2367,7 +2375,6 @@ namespace SquadfestBot
                 new DiscordApplicationCommandOption("limit", "Лимит выполнений", ApplicationCommandOptionType.Integer, true),
                 new DiscordApplicationCommandOption("day-or-week", "Номер дня (для daily) или недели (для weekly)", ApplicationCommandOptionType.Integer, false),
                 new DiscordApplicationCommandOption("global-limit", "Глобальный лимит", ApplicationCommandOptionType.Boolean, false),
-                //new DiscordApplicationCommandOption("help-text", "Текст подсказки", ApplicationCommandOptionType.String, false),
                 new DiscordApplicationCommandOption("explanation", "Описание для админов", ApplicationCommandOptionType.String, false)
             };
         }
@@ -2403,17 +2410,15 @@ namespace SquadfestBot
             var utcStartDate = DateTime.SpecifyKind(startDate, DateTimeKind.Utc);
             var startUnixTime = ((DateTimeOffset)utcStartDate).ToUnixTimeSeconds();
 
-            // Заголовок
             sb.AppendLine($"# 📋 **{(type == QuestType.Daily ? "Ежедневные" : "Еженедельные")} квесты**");
             sb.AppendLine($"*(Всего {(type == QuestType.Daily ? "дней" : "недель")}: {questDict.Count})*");
             sb.AppendLine($"## 📅 Начало отсчета: **<t:{startUnixTime}:f>**\n");
 
-            // Определяем текущий день/неделю
             var currentDay = (DateTime.UtcNow - startDate).Days;
             var currentWeek = currentDay / 7;
 
             int maxIndex = questDict.Keys.Count > 0 ? questDict.Keys.Max() : 0;
-            maxIndex += 5; // запас на будущее
+            maxIndex += 5;
 
             for (int i = 0; i <= maxIndex; i++)
             {
@@ -2435,11 +2440,8 @@ namespace SquadfestBot
                     _ => ""
                 };
 
-                // Заголовок дня
-                //sb.AppendLine($"---\n");
                 sb.AppendLine($"> ## **{(type == QuestType.Daily ? "День" : "Неделя")} {i}** — {hereMarker}{dateRange}");
 
-                // Есть ли квесты?
                 if (questDict.TryGetValue(i, out var questList) && questList.Count > 0)
                 {
                     for (int y = 0; y < questList.Count; y++)
@@ -2447,13 +2449,12 @@ namespace SquadfestBot
                         var q = questList[y];
 
                         sb.AppendLine($"> ### `**[{y}]**` **\"{q.Title}\"** (+{q.Reward}₧) — [{q.CompletionLimit}] — {(q.GlobalLimit ? "Глобальный" : "По командам")}");
-                        //sb.AppendLine($"> ");
                         sb.AppendLine($"> _{q.Description}_");
 
                         if (!string.IsNullOrEmpty(q.Explanation))
                             sb.AppendLine($"> 🔍 *({q.Explanation})*");
 
-                        sb.AppendLine("> "); // отступ
+                        sb.AppendLine("> ");
                     }
                 }
                 else
@@ -2461,7 +2462,6 @@ namespace SquadfestBot
                     sb.AppendLine($"> 🚫 **Нет активных квестов на этот день.**");
                 }
 
-                // Проверка длины
                 if (sb.Length > 1400)
                 {
                     pages.Add(sb.ToString());
@@ -2469,7 +2469,6 @@ namespace SquadfestBot
                 }
             }
 
-            // Добавить последнюю страницу если есть
             if (sb.Length > 0)
                 pages.Add(sb.ToString());
 
@@ -2501,6 +2500,12 @@ namespace SquadfestBot
                 pages.Add(sb.ToString());
 
             return pages;
+        }
+
+        private static async Task ErrorLog(object data)
+        {
+            Console.WriteLine(data);
+            await Program.BotManager.SendAdminMessage(data.ToString());
         }
     }
 }
