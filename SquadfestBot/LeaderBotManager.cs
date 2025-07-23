@@ -52,6 +52,16 @@ namespace SquadfestBot
             {
                 bot.CommandReceived += OnCommandReceived;
                 bot.ComponentReceived += OnComponentReceived;
+                bot._client.ClientErrored += async (s, e) =>
+                {
+                    try
+                    {
+                        await SendAdminMessage($"[Client Error] {e.Exception.GetType().Name}: {e.Exception.Message}");
+                        await SendAdminMessage(e.Exception.StackTrace);
+                    }
+                    catch { }
+                    
+                };
                 await bot.StartAsync();
             }
         }

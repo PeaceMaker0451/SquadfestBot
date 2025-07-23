@@ -9,8 +9,8 @@
 	  <PublishSingleFile>true</PublishSingleFile>
 	  <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <FileVersion>1.0.1</FileVersion>
-    <AssemblyVersion>1.0.1</AssemblyVersion>
+    <FileVersion>1.0.3.3</FileVersion>
+    <AssemblyVersion>1.0.3.3</AssemblyVersion>
     <RepositoryUrl>https://github.com/PeaceMaker0451/SquadfestBot</RepositoryUrl>
   </PropertyGroup>
 

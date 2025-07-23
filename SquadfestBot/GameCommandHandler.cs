@@ -2003,7 +2003,7 @@ namespace SquadfestBot
                     }
                     catch(Exception ex)
                     {
-                        ErrorLog($"{ex}");
+                        await ErrorLog($"{ex}");
                     }
 
 
@@ -2023,7 +2023,7 @@ namespace SquadfestBot
                     }
                     catch (Exception ex)
                     {
-                        ErrorLog($"{ex}");
+                        await ErrorLog($"{ex}");
                     }
 
                     Program.QuestManager.GetOriginalQuest(q).CompletedByTeams[bot.Id] = true;
@@ -2166,7 +2166,7 @@ namespace SquadfestBot
                     else
                         originalQuest.ExpiredByTeams[team] = true;
 
-                    ErrorLog($"[{bot.Id}] Объявлено просроченное задание: {quest.Quest.Title}");
+                    await ErrorLog($"[{bot.Id}] Объявлено просроченное задание: {quest.Quest.Title}");
                 }
             }
 
@@ -2203,7 +2203,7 @@ namespace SquadfestBot
             var playerId = ulong.Parse(parts[4]);
             var messageId = ulong.Parse(parts[5]);
 
-            ErrorLog($"[{bot.Id}] [Component] {action} quest={questType} index0={questIndex0} index1={questIndex1} player={playerId} messageId={messageId}");
+            await ErrorLog($"[{bot.Id}] [Component] {action} quest={questType} index0={questIndex0} index1={questIndex1} player={playerId} messageId={messageId}");
 
             bool accept = action == "accept";
             Quest quest = questType switch
@@ -2226,18 +2226,56 @@ namespace SquadfestBot
 
             bool reached = quest.LimitReached(bot.Id);
 
-            var guild = await bot._client.GetGuildAsync(Program.BotManager.GlobalState.GuildId);
-            var checkChannel = guild.GetChannel(Program.BotManager.GlobalState.QuestCheckChannelId);
-            var msg = await checkChannel.GetMessageAsync(messageId);
+            DiscordGuild guild;
+            DiscordChannel checkChannel;
+            DiscordMessage msg;
+
+            try
+            {
+                guild = await bot._client.GetGuildAsync(Program.BotManager.GlobalState.GuildId);
+            }
+            catch (Exception ex)
+            {
+                await ErrorLog($"Невозможно получить доступ к гильдии - {ex}");
+                return;
+            }
+
+            try
+            {
+                
+                checkChannel = await bot._client.GetChannelAsync(Program.BotManager.GlobalState.QuestCheckChannelId);
+            }
+            catch (Exception ex)
+            {
+                await ErrorLog($"Невозможно получить доступ к чату проверок - {ex}");
+                return;
+            }
+
+            try
+            {
+                msg = await checkChannel.GetMessageAsync(messageId);
+            }
+            catch(Exception ex)
+            {
+                await ErrorLog($"Невозможно получить доступ к сообщению с решением - {ex}");
+                return;
+            }
 
             if (reached)
             {
                 quest.RemoveCheck(playerId);
 
-                await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                try
+                {
+                    await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
                     new DiscordInteractionResponseBuilder()
                         .WithContent($"⚠️ Квест \"{quest.Title}\" больше не доступен для выполнения — лимит исчерпан.")
                         .AsEphemeral(true));
+                }
+                catch (Exception ex)
+                {
+                    await ErrorLog($"[{bot.Id}] Ошибка ответа: {ex}");
+                }
 
                 try
                 {
@@ -2325,11 +2363,18 @@ namespace SquadfestBot
                 await ErrorLog($"[{bot.Id}] Не удалось отправить ЛС пользователю {playerId}: {ex}");
             }
 
-            var user = await bot._client.GetUserAsync(playerId);
-            await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
-                new DiscordInteractionResponseBuilder()
-                    .WithContent($"Выполнение квеста **\"{quest.Title}\"** пользователя {user.Mention} было {(accept ? "✅ **подтверждено**" : "❌ **отвергнуто**")} пользователем {e.Interaction.User.Mention}\n\n_{StringTemplate.Format(selectedPhrase, variables)}_")
-                    .AsEphemeral(true));
+            try
+            {
+                var user = await bot._client.GetUserAsync(playerId);
+                await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource,
+                    new DiscordInteractionResponseBuilder()
+                        .WithContent($"Выполнение квеста **\"{quest.Title}\"** пользователя {user.Mention} было {(accept ? "✅ **подтверждено**" : "❌ **отвергнуто**")} пользователем {e.Interaction.User.Mention}\n\n_{StringTemplate.Format(selectedPhrase, variables)}_")
+                        .AsEphemeral(true));
+            }
+            catch(Exception ex)
+            {
+                await ErrorLog($"[{bot.Id}] Ошибка ответа: {ex}");
+            }
 
             try
             {
