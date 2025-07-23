@@ -35,7 +35,7 @@ public class Program
     {
         ServiceMode = false;
         await BotManager.StartAllAsync();
-        BotManager.StartQuestUpdateLoop(TimeSpan.FromMinutes(25));
+        BotManager.StartQuestUpdateLoop(TimeSpan.FromMinutes(BotManager.GlobalState.QuestUpdateLoopTimer));
     }
 
     public static async Task RestartAsync()

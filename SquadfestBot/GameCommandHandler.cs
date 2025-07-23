@@ -1365,7 +1365,7 @@ namespace SquadfestBot
 ;                
                 foreach (var q in active)
                 {
-                    if (sb[index].Length >= 1700)
+                    if (sb[index].Length >= Program.BotManager.GlobalState.ActiveQuestsListPageLength + 300)
                     {
                         index++;
                         sb.Add(new StringBuilder());
@@ -2507,7 +2507,7 @@ namespace SquadfestBot
                     sb.AppendLine($"> 🚫 **Нет активных квестов на этот день.**");
                 }
 
-                if (sb.Length > 1400)
+                if (sb.Length > Program.BotManager.GlobalState.QuestListPageLength + 150)
                 {
                     pages.Add(sb.ToString());
                     sb.Clear();
@@ -2534,7 +2534,7 @@ namespace SquadfestBot
                               $"{(q.GlobalLimit ? "Глобальный" : "По командам")}");
                 index++;
 
-                if (sb.Length > 1800)
+                if (sb.Length > Program.BotManager.GlobalState.QuestListPageLength + 150)
                 {
                     pages.Add(sb.ToString());
                     sb.Clear();

@@ -9,9 +9,10 @@
 	  <PublishSingleFile>true</PublishSingleFile>
 	  <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <FileVersion>1.0.3.3</FileVersion>
-    <AssemblyVersion>1.0.3.3</AssemblyVersion>
+    <FileVersion>1.0.3.4</FileVersion>
+    <AssemblyVersion>1.0.3.4</AssemblyVersion>
     <RepositoryUrl>https://github.com/PeaceMaker0451/SquadfestBot</RepositoryUrl>
+    <AnalysisLevel>preview</AnalysisLevel>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
