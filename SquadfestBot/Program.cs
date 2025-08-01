@@ -25,8 +25,6 @@ public class Program
             Console.ReadLine();
         }
         
-        
-        
         await StartAsync();
         await Task.Delay(-1);
     }
@@ -34,8 +32,29 @@ public class Program
     public static async Task StartAsync()
     {
         ServiceMode = false;
-        await BotManager.StartAllAsync();
-        BotManager.StartQuestUpdateLoop(TimeSpan.FromMinutes(BotManager.GlobalState.QuestUpdateLoopTimer));
+        try
+        {
+            await BotManager.StartAllAsync();
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Ошибка запуска BotManager! - {ex}");
+            BotManager.Dispose();
+        }
+        
+        try
+        {
+            if (BotManager.Bots.Count > 0)
+                BotManager.StartQuestUpdateLoop(TimeSpan.FromMinutes(BotManager.GlobalState.QuestUpdateLoopTimer));
+            else
+                Console.WriteLine("Не задано ни одного бота.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка запуска цикла обновления квестов! - {ex}");
+        }
+
+        
     }
 
     public static async Task RestartAsync()
@@ -51,7 +70,6 @@ public class Program
             Console.WriteLine($"Ошибка при dispose: {ex.Message}");
         }
 
-        // Новый менеджер и квесты
         BotManager = new LeaderBotManager();
         QuestManager = new QuestManager();
 
@@ -64,6 +82,15 @@ public class Program
     {
         ServiceMode = true;
         ServiceModeOn?.Invoke();
+
+        try
+        {
+            BotManager.StopQuestUpdateLoop();
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
     }
 }
 

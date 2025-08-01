@@ -34,14 +34,6 @@ namespace SquadfestBot
             var currentDay = (DateTime.UtcNow - StartDate).Days;
             var currentWeek = (currentDay) / 7;
 
-            Console.WriteLine($"now - {DateTime.UtcNow} \n" +
-                $"start date - {StartDate} \n" +
-                $"from start - {(DateTime.UtcNow - StartDate).ToString(@"d\д\ h\ч\ mm\м")} \n" +
-                $"day- {currentDay} \n" +
-                $"week- {currentWeek} \n" +
-                $"until next day - {((StartDate.AddDays((currentDay + 1))) - DateTime.UtcNow).ToString(@"d\д\ h\ч\ mm\м")} \n" +
-                $"until next week - {((StartDate.AddDays((currentWeek + 1) * 7)) - DateTime.UtcNow).ToString(@"d\д\ h\ч\ mm\м")}");
-
             LoadQuests();
         }
 

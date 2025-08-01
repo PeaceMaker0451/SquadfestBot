@@ -5,6 +5,7 @@ using System.Text;
 using DSharpPlus.Interactivity;
 using DSharpPlus.Interactivity.Extensions;
 using System.Text.Json;
+using System;
 
 namespace SquadfestBot
 {
@@ -874,7 +875,6 @@ namespace SquadfestBot
                         .WithContent($"Ошибка редактирование сообщения в канал: {ex.Message}"));
 
                     await ErrorLog(ex);
-                    //await Program.BotManager.SendAdminMessage(ex.ToString());
                 }
 
                 return;
@@ -914,7 +914,6 @@ namespace SquadfestBot
                         .WithContent($"Ошибка удаления сообщения в канале: {ex.Message}"));
 
                     await ErrorLog(ex);
-                    //await Program.BotManager.SendAdminMessage(ex.ToString());
                 }
 
                 return;
@@ -1349,7 +1348,7 @@ namespace SquadfestBot
             if (e.Interaction.Data.Name == "quests")
             {
                 var active = Program.QuestManager.GetActiveQuests(team: bot.Id);
-                var sb = new List<StringBuilder>();
+                var currentPage = new List<StringBuilder>();
 
                 var random = new Random();
                 var phrases = bot.Personality.QuestListPhrases;
@@ -1358,19 +1357,13 @@ namespace SquadfestBot
                 var interactivity = bot._client.GetInteractivity();
 
                 int index = 0;
-                sb.Add(new StringBuilder());
+                currentPage.Add(new StringBuilder());
 
-                sb[index].AppendLine($"_{StringTemplate.Format(selectedPhrase, variables)}_");
-                sb[index].AppendLine($"**📋 Текущие активные квесты:**\n");
+                currentPage[index].AppendLine($"_{StringTemplate.Format(selectedPhrase, variables)}_");
+                currentPage[index].AppendLine($"**📋 Текущие активные квесты:**\n");
 ;                
                 foreach (var q in active)
                 {
-                    if (sb[index].Length >= Program.BotManager.GlobalState.ActiveQuestsListPageLength + 300)
-                    {
-                        index++;
-                        sb.Add(new StringBuilder());
-                    }
-
                     var mskTime = TimeZoneInfo.ConvertTimeFromUtc(q.AvalableLimit,
                         TimeZoneInfo.FindSystemTimeZoneById("Russian Standard Time"));
 
@@ -1378,28 +1371,30 @@ namespace SquadfestBot
                         ? "∞"
                         : $"{mskTime:dd.MM HH:mm} МСК (осталось {q.AvalableLimit.Subtract(DateTime.UtcNow):d\\д\\ h\\ч\\ mm\\м})";
 
-                    if(!q.Quest.LimitReached(bot.Id))
+                    var newQuest = new StringBuilder();
+
+                    if (!q.Quest.LimitReached(bot.Id))
                     {
-                        sb[index].AppendLine($"# `[{q.Index + 1}]` [{q.QuestType}] **{q.Quest.Title}** — *{q.Quest.Reward}₧* " +
+                        newQuest.AppendLine($"# `[{q.Index + 1}]` [{q.QuestType}] **{q.Quest.Title}** — *{q.Quest.Reward}₧* " +
                         $"[{(q.Quest.CompletionsByTeams.ContainsKey(bot.Id) ? q.Quest.CompletionsByTeams[bot.Id] : "0")}/{q.Quest.CompletionLimit}] *({(q.Quest.GlobalLimit ? "Глобальный" : "По командам")})* " +
                         $"\n{q.Quest.Description}\n⏳ до: **{expires}**");
                     }
                     else
                     {
-                        sb[index].AppendLine($"# ~~`[{q.Index + 1}]` [{q.QuestType}] **{q.Quest.Title}** — *{q.Quest.Reward}₧* " +
+                        newQuest.AppendLine($"# ~~`[{q.Index + 1}]` [{q.QuestType}] **{q.Quest.Title}** — *{q.Quest.Reward}₧* " +
                         $"[{(q.Quest.CompletionsByTeams.ContainsKey(bot.Id) ? q.Quest.CompletionsByTeams[bot.Id] : "0")}/{q.Quest.CompletionLimit}] *({(q.Quest.GlobalLimit ? "Глобальный" : "По командам")})* ~~" +
                         $"\n~~{q.Quest.Description}\n⏳ до: **{expires}**~~");
                     }
 
                     if(q.Quest.CompletedPlayers.Count >= 1)
                     {
-                        sb[index].AppendLine($"Квест выполнили: ");
+                        newQuest.AppendLine($"Квест выполнили: ");
                         foreach (var player in q.Quest.CompletedPlayers)
                         {
                             if (Program.BotManager.GetPlayerLeader(player) == bot.Id)
                             {
                                 var user = await bot._client.GetUserAsync(player);
-                                sb[index].AppendLine($"- друг **{user.Username}** {(player == playerId ? "👈 это ты 👈" : "")}");
+                                newQuest.AppendLine($"- друг **{user.Username}** {(player == playerId ? "👈 это ты 👈" : "")}");
                             }
                         }
                         foreach (var player in q.Quest.CompletedPlayers)
@@ -1407,19 +1402,27 @@ namespace SquadfestBot
                             if (Program.BotManager.GetPlayerLeader(player) != bot.Id)
                             {
                                 var user = await bot._client.GetUserAsync(player);
-                                sb[index].AppendLine($"- соперник **{user.Username}** {(player == playerId ? "👈это ты👈" : "")}");
+                                newQuest.AppendLine($"- соперник **{user.Username}** {(player == playerId ? "👈это ты👈" : "")}");
                             }
                         }
                     }
 
-                    sb[index].AppendLine("");
+                    if (currentPage[index].Length + newQuest.Length >= Program.BotManager.GlobalState.ActiveQuestsListPageLength)
+                    {
+                        index++;
+                        currentPage.Add(new StringBuilder());
+                    }
+
+                    currentPage[index].AppendLine();
+                    currentPage[index].Append(newQuest);
+                    newQuest.Clear();
                 }
 
                 List<Page> pages = new List<Page>();
 
-                pages.AddRange(sb.Select((content, i) => new Page
+                pages.AddRange(currentPage.Select((content, i) => new Page
                 {
-                    Content = $"{content}\n\n**Страница {i + 1} из {sb.Count}**"
+                    Content = $"{content}\n\n**Страница {i + 1} из {currentPage.Count}**"
                 }));
 
                 await interactivity.SendPaginatedResponseAsync(
@@ -1678,6 +1681,12 @@ namespace SquadfestBot
                 ["n"] = "\n"
             };
 
+            if(bot.SaveData.QuestChannelId == 0)
+            {
+                await ErrorLog($"{bot.Id} - Квест канал не задан - пропускаю");
+                return;
+            }
+
             DiscordGuild guild;
             DiscordChannel questChannel;
             var botSaveData = bot.SaveData;
@@ -1686,11 +1695,11 @@ namespace SquadfestBot
             try
             {
                 guild = await bot._client.GetGuildAsync(Program.BotManager.GlobalState.GuildId);
-                questChannel = guild.GetChannel(bot.SaveData.QuestChannelId);
+                questChannel = await bot._client.GetChannelAsync(bot.SaveData.QuestChannelId);
             }
             catch(Exception ex)
             {
-                await ErrorLog($"[{bot.Id}] - Ошибка получения Гильдии/Канала - {ex}");
+                await ErrorLog($"[{bot.Id}] - Ошибка получения Гильдии/Канала для веток с квестами - {ex}");
 
                 return;
             }
@@ -1806,9 +1815,11 @@ namespace SquadfestBot
                 .Where(q => q.QuestType == type)
                 .ToList();
 
-            var sb = new StringBuilder();
-            sb.AppendLine($"# {StringTemplate.Format(botPersonality.QuestTypeTitles.GetValueOrDefault(type, type.ToString()), variables)}");
-            sb.AppendLine($"_(Обновлено <t:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}:R>)_\n");
+            var messages = new List<StringBuilder>();
+            messages.Add(new StringBuilder());
+
+            messages.Last().AppendLine($"# {StringTemplate.Format(botPersonality.QuestTypeTitles.GetValueOrDefault(type, type.ToString()), variables)}");
+            messages.Last().AppendLine($"_(Обновлено <t:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}:R>)_\n");
 
             if (type == QuestType.Daily || type == QuestType.Weekly)
             {
@@ -1833,12 +1844,14 @@ namespace SquadfestBot
                 var startUnix = ((DateTimeOffset)periodStart).ToUnixTimeSeconds();
                 var endUnix = ((DateTimeOffset)periodEnd).ToUnixTimeSeconds();
 
-                sb.AppendLine($"**Задания от <t:{startUnix}:D>**");
-                sb.AppendLine($"**Успейте их выполнить до <t:{endUnix}:D>**\n");
+                messages.Last().AppendLine($"**Задания от <t:{startUnix}:D>**");
+                messages.Last().AppendLine($"**Успейте их выполнить до <t:{endUnix}:D>**\n");
             }
 
             foreach (var q in active)
             {
+                StringBuilder newQuest = new StringBuilder();
+                
                 var utcAvalableTime = DateTime.SpecifyKind(q.AvalableLimit, DateTimeKind.Utc);
                 var avalableUnixTime = ((DateTimeOffset)utcAvalableTime).ToUnixTimeSeconds();
 
@@ -1848,40 +1861,57 @@ namespace SquadfestBot
 
                 string status = !q.Quest.LimitReached(bot.Id) ? "" : "~~";
 
-                sb.AppendLine($"# {status}`[{q.Index + 1}]` **{q.Quest.Title}** {status}\n");
-                sb.AppendLine($"{status} _{q.Quest.Description}_ {status}\n{status}(+{q.Quest.Reward}₧) [{(q.Quest.CompletionsByTeams.ContainsKey(bot.Id) ? q.Quest.CompletionsByTeams[bot.Id] : "0")}/{q.Quest.CompletionLimit}] {(q.Quest.GlobalLimit ? "[Глоб]" : "[По командам]")} {expires}{status}");
+                newQuest.AppendLine($"# {status}`[{q.Index + 1}]` **{q.Quest.Title}** {status}\n");
+                newQuest.AppendLine($"{status} _{q.Quest.Description}_ {status}\n{status}(+{q.Quest.Reward}₧) [{(q.Quest.CompletionsByTeams.ContainsKey(bot.Id) ? q.Quest.CompletionsByTeams[bot.Id] : "0")}/{q.Quest.CompletionLimit}] {(q.Quest.GlobalLimit ? "[Глоб]" : "[По командам]")} {expires}{status}");
+
+                if (messages.Last().Length + newQuest.Length > Program.BotManager.GlobalState.QuestsThreadMessageLength)
+                {
+                    messages.Add(new StringBuilder());
+                }
+                
+                messages.Last().Append(newQuest);
+                newQuest.Clear();
             }
 
             if (active.Count == 0)
             {
-                sb.AppendLine("_Нет активных заданий._");
+                messages.Last().AppendLine("_Нет активных заданий._");
             }
 
+            foreach (var messageId in threadData.ThreadMessagesId)
+            {
+                try
+                {
+                    DiscordMessage myMsg = await thread.GetMessageAsync(messageId);
 
-            DiscordMessage myMsg = null;
+                    if (myMsg != null)
+                    {
+                        await myMsg.DeleteAsync();
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    await ErrorLog($"[{bot.Id}] Ошибка удаления сообщения в ветке {thread.Name}. {ex}");
+                }
+            }
+
+            threadData.ThreadMessagesId.Clear();
+
             try
             {
-                myMsg = await thread.GetMessageAsync(threadData.ThreadMessageId);
+                foreach (var messageText in messages)
+                {
+                    var message = await thread.SendMessageAsync(messageText.ToString());
+                    threadData.ThreadMessagesId.Add(message.Id);
+
+                    botSaveData.QuestThreads[type] = threadData;
+                    bot.SaveData = botSaveData;
+                }
             }
             catch (Exception ex)
             {
-                await ErrorLog($"[{bot.Id}] Сообщение {threadData.ThreadMessageId} в ветке {thread.Name} не найдено или не доступно. Причина: {ex.Message}");
-            }
-
-            if (myMsg != null)
-            {
-                await myMsg.ModifyAsync(sb.ToString());
-                await ErrorLog($"[{bot.Id}] Сообщение обновлено в ветке {thread.Name}");
-            }
-            else
-            {
-                var newMsg = await thread.SendMessageAsync(sb.ToString());
-                threadData.ThreadMessageId = newMsg.Id;
-
-                botSaveData.QuestThreads[type] = threadData;
-                bot.SaveData = botSaveData;
-
-                await ErrorLog($"[{bot.Id}] Новое сообщение создано в ветке {thread.Name}");
+                await ErrorLog($"[{bot.Id}] Ошибка отправки сообщения в ветке {thread.Name}. {ex}");
             }
         }
 
@@ -1921,8 +1951,6 @@ namespace SquadfestBot
                     try
                     {
                         await globalChannel.SendMessageAsync($"{mainMessage}\n\n_{StringTemplate.Format(phrase, variables)}_");
-
-                        await ErrorLog($"Check {q.Quest.Title}");
                         Program.QuestManager.GetOriginalQuest(q).PresentedByTeams[bot.Id] = true;
                     }
                     catch(Exception ex)
@@ -2395,10 +2423,54 @@ namespace SquadfestBot
         {
             foreach (var type in Enum.GetValues<QuestType>())
             {
-                await CheckAndAnnounceNewQuests(bot, type);
-                await CheckAndAnnounceCompletedQuests(bot, type);
-                await CheckAndAnnounceExpiredQuests(bot, type);
-                await UpdateQuestThread(bot, type);
+                try
+                {
+                    if (bot.SaveData.GlobalChannelId == 0)
+                        Console.WriteLine($"{bot.Id} - Флуд канал не задан - пропускаю анонс новых квестов");
+                    else
+                        await CheckAndAnnounceNewQuests(bot, type);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"{bot.Id} - Ошибка анонса новых квестов типа {type}: - {ex}");
+                }
+
+                try
+                {
+                    if (bot.SaveData.GlobalChannelId == 0)
+                        Console.WriteLine($"{bot.Id} - Флуд канал не задан - пропускаю анонс завершенных квестов");
+                    else
+                        await CheckAndAnnounceCompletedQuests(bot, type);
+
+                }
+                catch (Exception ex)
+                {
+                    await ErrorLog($"{bot.Id} - Ошибка анонса завершенных квестов типа {type}: - {ex}");
+                }
+
+                try
+                {
+                    if (bot.SaveData.GlobalChannelId == 0)
+                        Console.WriteLine($"{bot.Id} - Флуд канал не задан - пропускаю анонс просроченных квестов");
+                    else
+                        await CheckAndAnnounceExpiredQuests(bot, type);
+                }
+                catch (Exception ex)
+                {
+                    await ErrorLog($"{bot.Id} - Ошибка анонса просроченных квестов типа {type}: - {ex}");
+                }
+
+                try
+                {
+                    if (bot.SaveData.QuestChannelId == 0)
+                        Console.WriteLine($"{bot.Id} - Квест канал не задан - пропускаю проверку квест-веток");
+                    else
+                        await UpdateQuestThread(bot, type);
+                }
+                catch (Exception ex)
+                {
+                    await ErrorLog($"{bot.Id} - Ошибка обновления веток квестов типа {type}: - {ex}");
+                }
             }
         }
 
@@ -2450,20 +2522,39 @@ namespace SquadfestBot
         private static List<string> BuildQuestList(Dictionary<int, List<Quest>> questDict, QuestType type, DateTime startDate)
         {
             var pages = new List<string>();
-            var sb = new StringBuilder();
+            var currentPage = new StringBuilder();
+            var newQuest = new StringBuilder();
 
             var utcStartDate = DateTime.SpecifyKind(startDate, DateTimeKind.Utc);
             var startUnixTime = ((DateTimeOffset)utcStartDate).ToUnixTimeSeconds();
 
-            sb.AppendLine($"# 📋 **{(type == QuestType.Daily ? "Ежедневные" : "Еженедельные")} квесты**");
-            sb.AppendLine($"*(Всего {(type == QuestType.Daily ? "дней" : "недель")}: {questDict.Count})*");
-            sb.AppendLine($"## 📅 Начало отсчета: **<t:{startUnixTime}:f>**\n");
+            currentPage.AppendLine($"# 📋 **{(type == QuestType.Daily ? "Ежедневные" : "Еженедельные")} квесты**");
+            currentPage.AppendLine($"*(Всего {(type == QuestType.Daily ? "дней" : "недель")}: {questDict.Count})*");
+            currentPage.AppendLine($"## 📅 Начало отсчета: **<t:{startUnixTime}:f>**\n");
 
             var currentDay = (DateTime.UtcNow - startDate).Days;
             var currentWeek = currentDay / 7;
 
             int maxIndex = questDict.Keys.Count > 0 ? questDict.Keys.Max() : 0;
             maxIndex += 5;
+
+            void CheckLength()
+            {
+                if (currentPage.Length + newQuest.Length > Program.BotManager.GlobalState.QuestListPageLength)
+                {
+                    if(currentPage.Length > 2000)
+                    {
+                        throw new Exception($"Слишком длинный текст ({currentPage.Length}) - {currentPage}");
+                    }
+                    
+                    pages.Add(currentPage.ToString());
+                    currentPage.Clear();
+
+                }
+
+                currentPage.Append(newQuest);
+                newQuest.Clear();
+            }
 
             for (int i = 0; i <= maxIndex; i++)
             {
@@ -2485,7 +2576,7 @@ namespace SquadfestBot
                     _ => ""
                 };
 
-                sb.AppendLine($"> ## **{(type == QuestType.Daily ? "День" : "Неделя")} {i}** — {hereMarker}{dateRange}");
+                newQuest.AppendLine($"> ## **{(type == QuestType.Daily ? "День" : "Неделя")} {i}** — {hereMarker}{dateRange}");
 
                 if (questDict.TryGetValue(i, out var questList) && questList.Count > 0)
                 {
@@ -2493,29 +2584,29 @@ namespace SquadfestBot
                     {
                         var q = questList[y];
 
-                        sb.AppendLine($"> ### `**[{y}]**` **\"{q.Title}\"** (+{q.Reward}₧) — [{q.CompletionLimit}] — {(q.GlobalLimit ? "Глобальный" : "По командам")}");
-                        sb.AppendLine($"> _{q.Description}_");
+                        newQuest.AppendLine($"> ### `**[{y}]**` **\"{q.Title}\"** (+{q.Reward}₧) — [{q.CompletionLimit}] — {(q.GlobalLimit ? "Глобальный" : "По командам")}");
+                        newQuest.AppendLine($"> _{q.Description}_");
 
                         if (!string.IsNullOrEmpty(q.Explanation))
-                            sb.AppendLine($"> 🔍 *({q.Explanation})*");
+                            newQuest.AppendLine($"> 🔍 *({q.Explanation})*");
 
-                        sb.AppendLine("> ");
+                        newQuest.AppendLine("> ");
+
+                        CheckLength();
                     }
                 }
                 else
                 {
-                    sb.AppendLine($"> 🚫 **Нет активных квестов на этот день.**");
+                    newQuest.AppendLine($"> 🚫 **Нет активных квестов на этот день.**");
+
+                    CheckLength();
                 }
 
-                if (sb.Length > Program.BotManager.GlobalState.QuestListPageLength + 150)
-                {
-                    pages.Add(sb.ToString());
-                    sb.Clear();
-                }
+                CheckLength();
             }
 
-            if (sb.Length > 0)
-                pages.Add(sb.ToString());
+            if (currentPage.Length > 0)
+                pages.Add(currentPage.ToString());
 
             return pages;
         }
@@ -2523,26 +2614,31 @@ namespace SquadfestBot
         private static List<string> BuildQuestList(List<Quest> questList, QuestType type)
         {
             var pages = new List<string>();
-            var sb = new StringBuilder();
+            var currentPage = new StringBuilder();
 
-            sb.AppendLine($"📋 **{(type == QuestType.Hard? "Сложные" : "Секретные")}** — Всего {questList.Count} квестов\n");
+            currentPage.AppendLine($"📋 **{(type == QuestType.Hard? "Сложные" : "Секретные")}** — Всего {questList.Count} квестов\n");
 
             int index = 0;
             foreach (var q in questList)
             {
-                sb.AppendLine($"{index} — **{q.Title}** ({q.Reward}₧) — Лимит: {q.CompletionLimit} — " +
+                var newQuest = new StringBuilder();
+
+                newQuest.AppendLine($"{index} — **{q.Title}** ({q.Reward}₧) — Лимит: {q.CompletionLimit} — " +
                               $"{(q.GlobalLimit ? "Глобальный" : "По командам")}");
                 index++;
 
-                if (sb.Length > Program.BotManager.GlobalState.QuestListPageLength + 150)
+                if (currentPage.Length + newQuest.Length > Program.BotManager.GlobalState.QuestListPageLength)
                 {
-                    pages.Add(sb.ToString());
-                    sb.Clear();
+                    pages.Add(currentPage.ToString());
+                    currentPage.Clear();
                 }
+
+                currentPage.Append(newQuest);
+                newQuest.Clear();
             }
 
-            if (sb.Length > 0)
-                pages.Add(sb.ToString());
+            if (currentPage.Length > 0)
+                pages.Add(currentPage.ToString());
 
             return pages;
         }

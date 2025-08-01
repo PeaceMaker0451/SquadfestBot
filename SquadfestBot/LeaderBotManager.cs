@@ -42,8 +42,6 @@ namespace SquadfestBot
         {
             Bots = LoadBots();
             GlobalState = GlobalState;
-
-            Program.ServiceModeOn += () => StopQuestUpdateLoop();
         }
 
         public async Task StartAllAsync()
@@ -186,7 +184,7 @@ namespace SquadfestBot
         {
             if (_questUpdateLoopCts != null)
             {
-                Console.WriteLine("⚠️ Quest update loop already running!");
+                Console.WriteLine("Невозможно снова запустить цикл обновления квестов - он уже запущен.");
                 return;
             }
 
@@ -194,7 +192,7 @@ namespace SquadfestBot
 
             Task.Run(async () =>
             {
-                Console.WriteLine($"Starting Quest Update Loop, interval = {interval}");
+                Console.WriteLine($"Запускаю цикл обновления квестов... Интервал = {interval}");
 
                 while (!_questUpdateLoopCts.Token.IsCancellationRequested)
                 {
@@ -202,18 +200,18 @@ namespace SquadfestBot
                     {
                         await UpdateTeamsQuests();
 
-                        Console.WriteLine($"Quest update completed at {DateTime.Now}");
+                        Console.WriteLine($"Цикл обновления квестов выполнен - {DateTime.Now}");
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Error in quest update loop: {ex}");
+                        Console.WriteLine($"Ошибка выполнения цикла обновления квестов: {ex}");
                     }
 
                     // Ждём нужный интервал
                     await Task.Delay(interval, _questUpdateLoopCts.Token);
                 }
 
-                Console.WriteLine("🛑 Quest update loop stopped.");
+                Console.WriteLine("Цикл обновления квестов остановлен.");
 
             }, _questUpdateLoopCts.Token);
         }
@@ -246,8 +244,6 @@ namespace SquadfestBot
             }
 
             Bots.Clear();
-
-            Console.WriteLine("LeaderBotManager успешно Dispose.");
         }
 
         public string GetGlobalStateJson()

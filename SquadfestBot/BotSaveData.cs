@@ -18,7 +18,7 @@ namespace SquadfestBot
     {
         public ulong MessageId { get; set; }
         public ulong ThreadId { get; set; }
-        public ulong ThreadMessageId { get; set; }
+        public List<ulong> ThreadMessagesId { get; set; } = new List<ulong>();
 
     }
 }

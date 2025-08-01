@@ -70,6 +70,7 @@ namespace SquadfestBot
             try
             {
                 await _client.BulkOverwriteGuildApplicationCommandsAsync(Program.BotManager.GlobalState.GuildId, GameCommandHandler.Commands.ToArray());
+                Console.WriteLine("Команды обновлены.");
             }
             catch(Exception ex)
             {
@@ -178,8 +179,6 @@ namespace SquadfestBot
         {
             _client?.DisconnectAsync().GetAwaiter().GetResult();
             _client?.Dispose();
-
-            Console.WriteLine($"LeaderBot {_client?.CurrentUser?.Username} успешно Dispose.");
         }
 
         public string GetSaveDataJson() => SerializeToJson(SaveData);
